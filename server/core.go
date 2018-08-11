@@ -50,15 +50,6 @@ func (app *App) Start() (err error) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Kill, os.Interrupt)
 
-	up := func(path string) (err error) {
-		cmd := exec.Command("docker-compose", "up", "-d")
-		cmd.Dir = path
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err = cmd.Run()
-		return
-	}
-
 	f := func() (err error) {
 		select {
 		case sig := <-c:
@@ -71,7 +62,7 @@ func (app *App) Start() (err error) {
 				zap.String("repo", event.URL),
 				zap.Time("timestamp", event.Timestamp))
 
-			err = up(event.Path)
+			err = compose(event.Path, "up", "-d")
 			if err != nil {
 				logger.Error("failed to execute compose", zap.Error(err))
 				err = nil
@@ -87,7 +78,7 @@ func (app *App) Start() (err error) {
 		if err != nil {
 			return
 		}
-		err = up(path)
+		err = compose(path, "up", "-d")
 		if err != nil {
 			return
 		}
@@ -107,4 +98,25 @@ func (app *App) Start() (err error) {
 // Stop gracefully closes the application
 func (app *App) Stop() {
 	app.cf()
+
+	for _, target := range app.Config.Targets {
+		path, err := gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
+		if err != nil {
+			continue
+		}
+		err = compose(path, "down")
+		if err != nil {
+			continue
+		}
+
+		logger.Info("shut down deployment",
+			zap.String("target", target))
+	}
+}
+
+func compose(path string, command ...string) (err error) {
+	cmd := exec.Command("docker-compose", command...)
+	cmd.Dir = path
+	err = cmd.Run()
+	return
 }

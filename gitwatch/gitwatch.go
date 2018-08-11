@@ -91,6 +91,7 @@ func (s *Session) daemon() {
 		err = f()
 		if err != nil {
 			log.Println(err)
+			break
 		}
 	}
 }
