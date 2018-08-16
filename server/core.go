@@ -2,13 +2,15 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 
-	"go.uber.org/zap"
-
+	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/Southclaws/machinehead/gitwatch"
 )
@@ -17,6 +19,7 @@ import (
 type App struct {
 	Config  Config
 	Watcher *gitwatch.Session
+	Vault   *api.Client
 
 	ctx context.Context
 	cf  context.CancelFunc
@@ -25,36 +28,72 @@ type App struct {
 // Initialise creates a new instance and prepares it for starting
 func Initialise(config Config) (app *App, err error) {
 	ctx, cf := context.WithCancel(context.Background())
-	gw, err := gitwatch.New(ctx, config.Targets, config.CheckInterval, config.CacheDirectory, true)
+
+	app = &App{
+		Config: config,
+		ctx:    ctx,
+		cf:     cf,
+	}
+
+	app.Vault, err = api.NewClient(&api.Config{
+		Address: config.VaultAddress,
+	})
+	if err != nil {
+		err = errors.Wrap(err, "failed to create new vault client")
+		return
+	}
+	app.Vault.SetToken(config.VaultToken)
+	app.Vault.SetNamespace(config.VaultNamespace)
+
+	app.Watcher, err = gitwatch.New(ctx, config.Targets, config.CheckInterval, config.CacheDirectory, true)
 	if err != nil {
 		cf()
 		err = errors.Wrap(err, "failed to construct new git watcher")
 		return
 	}
 
-	logger.Debug("starting machinehead with debug logging",
-		zap.Any("config", config))
-
-	app = &App{
-		Config:  config,
-		Watcher: gw,
-		ctx:     ctx,
-		cf:      cf,
-	}
+	logger.Debug("starting machinehead with debug logging", zap.Any("config", config))
 
 	return
 }
 
 // Start will start the application and block until graceful exit or fatal error
-func (app *App) Start() (err error) {
+func (app *App) Start() {
+	// first, bootstrap the repositories
+	// pass errors to a channel
+	errChan := make(chan error)
+	go func() {
+		errChan <- app.Watcher.Run()
+	}()
+	<-app.Watcher.InitialDone
+
+	// initial `docker-compose up` of apps
+	err := app.doInitialUp()
+	if err != nil {
+		logger.Fatal("daemon failed to initialise")
+	}
+
+	// start and block until error or graceful exit
+	// always stop after, regardless of exit state
+	defer app.Stop()
+	err = app.start(errChan)
+	if err != nil {
+		logger.Error("daemon encountered an error",
+			zap.Error(err))
+	}
+}
+
+func (app *App) start(errChan chan error) (err error) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Kill, os.Interrupt)
 
-	f := func() (err error) {
+	f := func() (errInner error) {
 		select {
 		case sig := <-c:
-			err = errors.New(sig.String())
-			return
+			return errors.New(sig.String())
+
+		case errInner = <-errChan:
+			return errors.Wrap(errInner, "git watcher encountered an error")
 
 		case event := <-app.Watcher.Events:
 			logger.Debug("event received",
@@ -62,26 +101,17 @@ func (app *App) Start() (err error) {
 				zap.String("repo", event.URL),
 				zap.Time("timestamp", event.Timestamp))
 
-			err = compose(event.Path, "up", "-d")
-			if err != nil {
-				logger.Error("failed to execute compose", zap.Error(err))
-				err = nil
+			env, errInner := app.envForRepo(event.Path)
+			if errInner != nil {
+				return errors.Wrap(errInner, "failed to get secrets for project")
+			}
+
+			errInner = compose(event.Path, env, "up", "-d")
+			if errInner != nil {
+				return errors.Wrap(errInner, "failed to execute compose")
 			}
 		}
 		return
-	}
-
-	// do an initial `docker-compose up` for each target
-	var path string
-	for _, target := range app.Config.Targets {
-		path, err = gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
-		if err != nil {
-			return
-		}
-		err = compose(path, "up", "-d")
-		if err != nil {
-			return
-		}
 	}
 
 	for {
@@ -90,8 +120,6 @@ func (app *App) Start() (err error) {
 			break
 		}
 	}
-
-	app.Stop()
 	return err
 }
 
@@ -104,7 +132,7 @@ func (app *App) Stop() {
 		if err != nil {
 			continue
 		}
-		err = compose(path, "down")
+		err = compose(path, map[string]string{}, "down")
 		if err != nil {
 			continue
 		}
@@ -114,9 +142,62 @@ func (app *App) Stop() {
 	}
 }
 
-func compose(path string, command ...string) (err error) {
+// doInitialUp performs an initial `docker-compose up` for each target
+func (app *App) doInitialUp() (err error) {
+	var path string
+	for _, target := range app.Config.Targets {
+		path, err = gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
+		if err != nil {
+			return errors.Wrap(err, "failed to get cached repository path")
+		}
+
+		var env map[string]string
+		env, err = app.envForRepo(path)
+		if err != nil {
+			return errors.Wrap(err, "failed to get secrets for project")
+		}
+
+		err = compose(path, env, "up", "-d")
+		if err != nil {
+			return
+		}
+	}
+	return
+}
+
+// envForRepo gets a set of environment variables for a given repo
+func (app *App) envForRepo(path string) (result map[string]string, err error) {
+	projectName := filepath.Base(path)
+	secret, err := app.Vault.Logical().List(projectName)
+	if err != nil {
+		return
+	}
+	if secret == nil {
+		return
+	}
+
+	result = make(map[string]string)
+	var ok bool
+	for k, v := range secret.Data {
+		result[k], ok = v.(string)
+		if !ok {
+			continue
+		}
+	}
+
+	return
+}
+
+func compose(path string, env map[string]string, command ...string) (err error) {
+	logger.Info("running compose command",
+		zap.Any("env", env),
+		zap.Strings("args", command))
+
 	cmd := exec.Command("docker-compose", command...)
 	cmd.Dir = path
+	for k, v := range env {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	}
 	err = cmd.Run()
-	return
+	return errors.Wrap(err, "failed to execute compose")
 }

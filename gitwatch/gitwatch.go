@@ -5,7 +5,6 @@ package gitwatch
 
 import (
 	"context"
-	"log"
 	"net/url"
 	"path/filepath"
 	"time"
@@ -20,6 +19,7 @@ type Session struct {
 	Interval     time.Duration // the interval between remote checks
 	Directory    string        // the directory to store repositories
 	InitialEvent bool          // if true, an event for each repo will be emitted upon construction
+	InitialDone  chan struct{} // if InitialEvent true, this is pushed to after initial setup done
 	Events       chan Event    // when a change is detected, events are pushed here
 
 	ctx context.Context
@@ -48,12 +48,17 @@ func New(
 		Directory:    dir,
 		Events:       make(chan Event),
 		InitialEvent: initialEvent,
+		InitialDone:  make(chan struct{}),
 
 		ctx: ctx2,
 		cf:  cf,
 	}
-	go session.daemon()
 	return
+}
+
+// Run begins the watcher and blocks until an error occurs
+func (s *Session) Run() (err error) {
+	return s.daemon()
 }
 
 // Close gracefully shuts down the git watcher
@@ -61,7 +66,7 @@ func (s *Session) Close() {
 	s.cf()
 }
 
-func (s *Session) daemon() {
+func (s *Session) daemon() (err error) {
 	t := time.NewTicker(s.Interval)
 
 	f := func() (err error) {
@@ -78,20 +83,18 @@ func (s *Session) daemon() {
 		return
 	}
 
-	var err error
-
 	if s.InitialEvent {
-		err = f()
+		err = s.checkRepos()
 		if err != nil {
-			log.Println(err)
+			return err
 		}
+		s.InitialDone <- struct{}{}
 	}
 
 	for {
 		err = f()
 		if err != nil {
-			log.Println(err)
-			break
+			return err
 		}
 	}
 }
@@ -105,7 +108,7 @@ func (s *Session) checkRepos() (err error) {
 		}
 
 		if event != nil {
-			s.Events <- *event
+			go func() { s.Events <- *event }()
 		}
 	}
 	return

@@ -1,0 +1,3 @@
+FROM scratch
+COPY machinehead /bin/machinehead
+ENTRYPOINT ["machinehead"]

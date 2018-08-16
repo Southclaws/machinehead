@@ -5,7 +5,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	"github.com/Southclaws/Machinehead/server"
+	"github.com/Southclaws/machinehead/server"
 )
 
 func main() {
@@ -20,5 +20,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Fatal(app.Start())
+	app.Start()
 }
