@@ -22,3 +22,23 @@ In addition to that, it will export a set of secrets read from Hashicorp Vault
 as environment variables for each project. This separates deployment manifests
 from credentials, keeps deployment stateless and lets you update compose
 projects with a simple `git push`.
+
+## Usage
+
+The application is currently under development so things might change.
+
+Since this is an application intended to be spun up on a server and left alone,
+configuration is done via environment variables:
+
+- `MACHINEHEAD_TARGETS` a comma-separated list of git URLs
+- `MACHINEHEAD_CHECK_INTERVAL` how frequently to check git repos for changes
+- `MACHINEHEAD_CACHE_DIRECTORY` where to clone git repos
+- `MACHINEHEAD_VAULT_ADDRESS` the Vault server address
+- `MACHINEHEAD_VAULT_TOKEN` a vault token that has access to secrets
+
+## Vault
+
+Inside vault, Machinehead uses the project name, the base component of the git
+repo path, as a Vault path and attempts to read values from there as
+string-to-string values. It will export these values as environment variables
+for each project deployment.
