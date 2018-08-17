@@ -2,11 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"os/exec"
-	"os/signal"
-	"path/filepath"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
@@ -58,7 +53,8 @@ func Initialise(config Config) (app *App, err error) {
 }
 
 // Start will start the application and block until graceful exit or fatal error
-func (app *App) Start() {
+// returns an exit code to be passed back to the `main` caller for `os.Exit`.
+func (app *App) Start() int {
 	// first, bootstrap the repositories
 	// pass errors to a channel
 	errChan := make(chan error)
@@ -80,47 +76,10 @@ func (app *App) Start() {
 	if err != nil {
 		logger.Error("daemon encountered an error",
 			zap.Error(err))
-	}
-}
-
-func (app *App) start(errChan chan error) (err error) {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Kill, os.Interrupt)
-
-	f := func() (errInner error) {
-		select {
-		case sig := <-c:
-			return errors.New(sig.String())
-
-		case errInner = <-errChan:
-			return errors.Wrap(errInner, "git watcher encountered an error")
-
-		case event := <-app.Watcher.Events:
-			logger.Debug("event received",
-				zap.String("path", event.Path),
-				zap.String("repo", event.URL),
-				zap.Time("timestamp", event.Timestamp))
-
-			env, errInner := app.envForRepo(event.Path)
-			if errInner != nil {
-				return errors.Wrap(errInner, "failed to get secrets for project")
-			}
-
-			errInner = compose(event.Path, env, "up", "-d")
-			if errInner != nil {
-				return errors.Wrap(errInner, "failed to execute compose")
-			}
-		}
-		return
+		return 1
 	}
 
-	for {
-		err = f()
-		if err != nil {
-			break
-		}
-	}
-	return err
+	return 0
 }
 
 // Stop gracefully closes the application
@@ -140,64 +99,4 @@ func (app *App) Stop() {
 		logger.Info("shut down deployment",
 			zap.String("target", target))
 	}
-}
-
-// doInitialUp performs an initial `docker-compose up` for each target
-func (app *App) doInitialUp() (err error) {
-	var path string
-	for _, target := range app.Config.Targets {
-		path, err = gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
-		if err != nil {
-			return errors.Wrap(err, "failed to get cached repository path")
-		}
-
-		var env map[string]string
-		env, err = app.envForRepo(path)
-		if err != nil {
-			return errors.Wrap(err, "failed to get secrets for project")
-		}
-
-		err = compose(path, env, "up", "-d")
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-// envForRepo gets a set of environment variables for a given repo
-func (app *App) envForRepo(path string) (result map[string]string, err error) {
-	projectName := filepath.Base(path)
-	secret, err := app.Vault.Logical().List(projectName)
-	if err != nil {
-		return
-	}
-	if secret == nil {
-		return
-	}
-
-	result = make(map[string]string)
-	var ok bool
-	for k, v := range secret.Data {
-		result[k], ok = v.(string)
-		if !ok {
-			continue
-		}
-	}
-
-	return
-}
-
-func compose(path string, env map[string]string, command ...string) (err error) {
-	logger.Info("running compose command",
-		zap.Any("env", env),
-		zap.Strings("args", command))
-
-	cmd := exec.Command("docker-compose", command...)
-	cmd.Dir = path
-	for k, v := range env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-	err = cmd.Run()
-	return errors.Wrap(err, "failed to execute compose")
 }

@@ -2,7 +2,9 @@ package main
 
 import (
 	"log"
+	"os"
 
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/kelseyhightower/envconfig"
 
 	"github.com/Southclaws/machinehead/server"
@@ -20,5 +22,5 @@ func main() {
 		log.Fatal(err)
 	}
 
-	app.Start()
+	os.Exit(app.Start())
 }
