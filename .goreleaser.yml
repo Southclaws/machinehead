@@ -45,3 +45,7 @@ snapcraft:
     A docker-compose application manager that deploys and maintains a set of
     compose projects and provides secret management for them via Vault.
   grade: devel
+  apps:
+    machinehead:
+      plugs: ["docker-support"]
+      daemon: simple
