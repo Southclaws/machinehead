@@ -3,7 +3,7 @@ go:
   - "1.6"
 
 install:
-  - sudo snap install snapcraft rpm
+  - sudo apt install snapcraft rpm
   - go get github.com/hashicorp/vault
 env:
   - PATH=/snap/bin:$PATH DEBUG=1
