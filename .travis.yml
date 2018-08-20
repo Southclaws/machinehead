@@ -20,7 +20,7 @@ script:
   - go test -v -race ./server
 
 after_success:
-  - test -n "$TRAVIS_TAG" && docker login -u=myuser -p="$DOCKER_PASSWORD"
+  - test -n "$TRAVIS_TAG" && docker login -u=southclaws -p="$DOCKER_PASSWORD"
 
 deploy:
   - provider: script
