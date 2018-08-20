@@ -14,17 +14,22 @@ import (
 
 // start runs the daemon and blocks until exit, it returns an error for
 // `app.Start` to handle and log.
-func (app *App) start(errChan chan error) (err error) {
+func (app *App) start() (err error) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Kill, os.Interrupt)
 
 	f := func() (errInner error) {
 		select {
+		case <-app.ctx.Done():
+			logger.Debug("application internally terminated", zap.Error(app.ctx.Err()))
+			return app.ctx.Err()
+
 		case sig := <-c:
 			return errors.New(sig.String())
 
-		case errInner = <-errChan:
-			return errors.Wrap(errInner, "git watcher encountered an error")
+		case errInner = <-app.Watcher.Errors:
+			logger.Error("git watcher encountered an error",
+				zap.Error(errInner))
 
 		case event := <-app.Watcher.Events:
 			logger.Debug("event received",
@@ -34,24 +39,27 @@ func (app *App) start(errChan chan error) (err error) {
 
 			env, errInner := app.envForRepo(event.Path)
 			if errInner != nil {
-				return errors.Wrap(errInner, "failed to get secrets for project")
+				logger.Error("failed to get secrets for project",
+					zap.Error(errInner))
 			}
 
 			errInner = compose(event.Path, env, "up", "-d")
 			if errInner != nil {
-				return errors.Wrap(errInner, "failed to execute compose")
+				logger.Error("failed to execute compose",
+					zap.Error(errInner))
 			}
 		}
-		return
+		return nil
 	}
+
+	logger.Debug("starting background daemon")
 
 	for {
 		err = f()
 		if err != nil {
-			break
+			return
 		}
 	}
-	return err
 }
 
 // doInitialUp performs an initial `docker-compose up` for each target
@@ -102,7 +110,7 @@ func (app *App) envForRepo(path string) (result map[string]string, err error) {
 
 // compose runs a docker-compose command with the given environment variables
 func compose(path string, env map[string]string, command ...string) (err error) {
-	logger.Info("running compose command",
+	logger.Debug("running compose command",
 		zap.Any("env", env),
 		zap.Strings("args", command))
 

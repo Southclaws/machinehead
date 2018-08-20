@@ -40,6 +40,12 @@ func Initialise(config Config) (app *App, err error) {
 	app.Vault.SetToken(config.VaultToken)
 	app.Vault.SetNamespace(config.VaultNamespace)
 
+	_, err = app.Vault.Help("secret")
+	if err != nil {
+		err = errors.Wrap(err, "failed to perform request to vault server")
+		return
+	}
+
 	app.Watcher, err = gitwatch.New(ctx, config.Targets, config.CheckInterval, config.CacheDirectory, true)
 	if err != nil {
 		cf()
@@ -55,35 +61,60 @@ func Initialise(config Config) (app *App, err error) {
 // Start will start the application and block until graceful exit or fatal error
 // returns an exit code to be passed back to the `main` caller for `os.Exit`.
 func (app *App) Start() int {
+	err := app.Run()
+	if err != nil {
+		logger.Error("application daemon encountered an error",
+			zap.Error(err))
+		return 1
+	}
+	return 0
+}
+
+// Run will run the application and block until graceful exit like `app.Start`
+// but this function returns an explicit error. This is for use when Machinehead
+// is being used as a library instead of a command line application.
+func (app *App) Run() (err error) {
 	// first, bootstrap the repositories
 	// pass errors to a channel
 	errChan := make(chan error)
 	go func() {
 		errChan <- app.Watcher.Run()
 	}()
-	<-app.Watcher.InitialDone
+	select {
+	case <-app.Watcher.InitialDone:
+		break
+	case err = <-errChan:
+		return errors.Wrap(err, "git watcher encountered an error during initial clone")
+	}
 
 	// initial `docker-compose up` of apps
-	err := app.doInitialUp()
+	err = app.doInitialUp()
 	if err != nil {
-		logger.Fatal("daemon failed to initialise")
+		return errors.Wrap(err, "daemon failed to initialise")
 	}
+
+	logger.Debug("done initial docker-compose up of targets")
 
 	// start and block until error or graceful exit
 	// always stop after, regardless of exit state
 	defer app.Stop()
 	err = app.start(errChan)
 	if err != nil {
-		logger.Error("daemon encountered an error",
-			zap.Error(err))
-		return 1
+		return
 	}
 
-	return 0
+	return
 }
 
 // Stop gracefully closes the application
 func (app *App) Stop() {
+	// don't allow repeated graceful shutdowns
+	if app.ctx.Err() != nil {
+		return
+	}
+
+	logger.Debug("graceful shutdown initiated")
+
 	app.cf()
 
 	for _, target := range app.Config.Targets {

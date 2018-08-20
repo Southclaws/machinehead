@@ -21,6 +21,7 @@ type Session struct {
 	InitialEvent bool          // if true, an event for each repo will be emitted upon construction
 	InitialDone  chan struct{} // if InitialEvent true, this is pushed to after initial setup done
 	Events       chan Event    // when a change is detected, events are pushed here
+	Errors       chan error    // when an error occurs, errors come here instead of halting the loop
 
 	ctx context.Context
 	cf  context.CancelFunc
@@ -47,6 +48,7 @@ func New(
 		Interval:     interval,
 		Directory:    dir,
 		Events:       make(chan Event),
+		Errors:       make(chan error, 16),
 		InitialEvent: initialEvent,
 		InitialDone:  make(chan struct{}),
 
@@ -73,11 +75,11 @@ func (s *Session) daemon() (err error) {
 		select {
 		case <-s.ctx.Done():
 			err = context.Canceled
-			break
 		case <-t.C:
-			err := s.checkRepos()
+			err = s.checkRepos()
 			if err != nil {
-				break
+				s.Errors <- err
+				return nil
 			}
 		}
 		return
@@ -86,7 +88,7 @@ func (s *Session) daemon() (err error) {
 	if s.InitialEvent {
 		err = s.checkRepos()
 		if err != nil {
-			return err
+			return
 		}
 		s.InitialDone <- struct{}{}
 	}
@@ -94,7 +96,7 @@ func (s *Session) daemon() (err error) {
 	for {
 		err = f()
 		if err != nil {
-			return err
+			return
 		}
 	}
 }
