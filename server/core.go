@@ -98,7 +98,7 @@ func (app *App) Run() (err error) {
 	// start and block until error or graceful exit
 	// always stop after, regardless of exit state
 	defer app.Stop()
-	err = app.start(errChan)
+	err = app.start()
 	if err != nil {
 		return
 	}
