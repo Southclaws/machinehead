@@ -14,13 +14,10 @@ env:
   - PATH=/snap/bin:$PATH
   - DEBUG=1
 
-jobs:
-  include:
-    - stage: test
-      script:
-        - vault server -dev
-        - go test -v -race ./gitwatch
-        - go test -v -race ./server
+script:
+  - vault server -dev
+  - go test -v -race ./gitwatch
+  - go test -v -race ./server
 
 after_success:
   - test -n "$TRAVIS_TAG" && docker login -u=myuser -p="$DOCKER_PASSWORD"
