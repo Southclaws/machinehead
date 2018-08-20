@@ -11,8 +11,7 @@ install:
   - sudo snap install snapcraft --classic
   - go get github.com/hashicorp/vault
 env:
-  - PATH=/snap/bin:$PATH
-  - DEBUG=1
+  - PATH=/snap/bin:$PATH DEBUG=1
 
 script:
   - vault server -dev
