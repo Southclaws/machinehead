@@ -10,7 +10,6 @@ env:
   - PATH=/snap/bin:$PATH DEBUG=1
 
 script:
-  - vault server -dev
   - go test -v -race ./gitwatch
   - go test -v -race ./server
 
