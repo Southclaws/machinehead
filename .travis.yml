@@ -10,7 +10,7 @@ env:
   - PATH=/snap/bin:$PATH DEBUG=1
 
 script:
-  - go get -u
+  - go get -t -u
   - go test -v -race ./gitwatch
   - go test -v -race ./server
 
