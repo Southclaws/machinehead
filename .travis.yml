@@ -2,12 +2,8 @@ language: go
 go:
   - "1.6"
 
-addons:
-  apt:
-    packages:
-      - rpm
-      - snapcraft
 install:
+  - sudo apt-get --yes install snapd
   - sudo snap install snapcraft --classic
   - go get github.com/hashicorp/vault
 env:
