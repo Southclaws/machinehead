@@ -3,7 +3,7 @@ go:
   - "1.10"
 
 install:
-  - sudo apt --yes install snapd
+  - sudo apt-get --yes install snapd
   - sudo snap install snapcraft --classic
   - go get github.com/hashicorp/vault
 env:
