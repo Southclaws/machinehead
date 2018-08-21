@@ -38,7 +38,9 @@ func Initialise(config Config) (app *App, err error) {
 		return
 	}
 	app.Vault.SetToken(config.VaultToken)
-	app.Vault.SetNamespace(config.VaultNamespace)
+	if config.VaultNamespace != "" {
+		app.Vault.SetNamespace(config.VaultNamespace)
+	}
 
 	_, err = app.Vault.Help("secret")
 	if err != nil {
