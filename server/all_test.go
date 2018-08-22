@@ -106,7 +106,7 @@ func setup() (close context.CancelFunc, err error) {
 		fmt.Println("closing vault instance")
 		vaultClose()
 	}
-	if err = (exec.CommandContext(vaultCtx, "vault", "server", "-dev", "-dev-root-token-id=1234").Start()); err != nil {
+	if err = startVault(vaultCtx); err != nil {
 		return
 	}
 	// wait for vault to spin up
@@ -127,6 +127,12 @@ func setup() (close context.CancelFunc, err error) {
 	if err != nil {
 		return
 	}
+
+	s, err := app.Vault.Logical().Write("secret/test", map[string]interface{}{"key1": "value1", "key2": "value2"})
+	if err != nil {
+		return
+	}
+	fmt.Println(s)
 
 	return
 }
@@ -208,4 +214,25 @@ func writeDC(path string, command []string) (err error) {
 		return
 	}
 	return
+}
+
+func startVault(ctx context.Context) (err error) {
+	ch := make(chan error, 1)
+	go func(c chan error) {
+		cmd := exec.CommandContext(ctx, "vault", "server", "-dev", "-dev-root-token-id=1234")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		e := cmd.Run()
+		if c != nil {
+			c <- e
+		}
+	}(ch)
+
+	t := time.NewTimer(time.Second)
+	select {
+	case <-t.C:
+		return nil
+	case err := <-ch:
+		return err
+	}
 }
