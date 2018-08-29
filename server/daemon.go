@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 
-	"github.com/Southclaws/machinehead/gitwatch"
+	"github.com/Southclaws/gitwatch"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )

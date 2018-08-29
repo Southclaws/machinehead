@@ -3,11 +3,11 @@ package server
 import (
 	"context"
 
+	"github.com/Southclaws/gitwatch"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-
-	"github.com/Southclaws/machinehead/gitwatch"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport/ssh"
 )
 
 // App stores application state
@@ -48,7 +48,13 @@ func Initialise(config Config) (app *App, err error) {
 		return
 	}
 
-	app.Watcher, err = gitwatch.New(ctx, config.Targets, config.CheckInterval, config.CacheDirectory, true)
+	auth, err := ssh.NewSSHAgentAuth("")
+	if err != nil {
+		err = errors.Wrap(err, "failed to set up SSH authentication")
+		return
+	}
+
+	app.Watcher, err = gitwatch.New(ctx, config.Targets, config.CheckInterval, config.CacheDirectory, auth, true)
 	if err != nil {
 		cf()
 		err = errors.Wrap(err, "failed to construct new git watcher")
