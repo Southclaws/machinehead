@@ -1,0 +1,5 @@
+{
+  "targets": [],
+  "check_interval": "1s",
+  "cache_directory": "./cache"
+}

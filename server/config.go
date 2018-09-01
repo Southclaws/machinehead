@@ -20,7 +20,7 @@ type Config struct {
 
 // LoadConfig reads configuration from the current working directory
 func LoadConfig() (config Config, err error) {
-	err = configor.Load(&config, "config.json")
+	err = configor.Load(&config, "machinehead.json")
 	if err != nil {
 		return
 	}

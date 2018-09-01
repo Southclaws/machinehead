@@ -47,9 +47,9 @@ func (app *App) start() (err error) {
 		return errors.Wrap(err, "failed to create configuration file watcher")
 	}
 
-	err = configWatcher.Add("config.json")
+	err = configWatcher.Add("machinehead.json")
 	if err != nil {
-		return errors.Wrap(err, "failed to add config.json to file watcher")
+		return errors.Wrap(err, "failed to add machinehead.json to file watcher")
 	}
 
 	f := func() (errInner error) {
