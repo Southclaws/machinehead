@@ -107,12 +107,22 @@ func (app *App) start() (err error) {
 			logger.Error("config watcher encountered an error",
 				zap.Error(errInner))
 
+		case errInner = <-app.SelfWatcher.Errors:
+			logger.Error("self repo watcher encountered an error",
+				zap.Error(errInner))
+
 		case <-configWatcher.Events:
 			errInner = app.setupGitWatcher()
 			if errInner != nil {
 				logger.Error("failed to re-create git watcher with new config",
 					zap.Error(errInner))
 			}
+
+		case event := <-app.SelfWatcher.Events:
+			logger.Debug("working repository that contains config updated",
+				zap.String("url", event.URL),
+				zap.String("path", event.Path),
+				zap.Time("timestamp", event.Timestamp))
 
 		case event := <-app.Watcher.Events:
 			logger.Debug("event received",
