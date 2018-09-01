@@ -30,7 +30,7 @@ require (
 	github.com/duosecurity/duo_api_golang v0.0.0-20180315112207-d0530c80e49a // indirect
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/fatih/structs v1.0.0 // indirect
-	github.com/fsnotify/fsnotify v1.4.7 // indirect
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-sql-driver/mysql v1.4.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
 	github.com/gocql/gocql v0.0.0-20180831220854-7e0c1ee23124 // indirect

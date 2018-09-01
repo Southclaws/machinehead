@@ -6,18 +6,51 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"time"
 
 	"github.com/Southclaws/gitwatch"
+	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
+
+// sets up the gitwatch daemon, called during initialisation and at runtime
+// whenever the config is updated to add new targets to the watcher.
+func (app *App) setupGitWatcher() (err error) {
+	if app.Watcher != nil {
+		app.Watcher.Close()
+	}
+	app.Watcher, err = gitwatch.New(
+		app.ctx,
+		app.Config.Targets,
+		time.Duration(app.Config.CheckInterval),
+		app.Config.CacheDirectory,
+		app.Auth,
+		true,
+	)
+	if err != nil {
+		err = errors.Wrap(err, "failed to construct new git watcher")
+		return
+	}
+	return
+}
 
 // start runs the daemon and blocks until exit, it returns an error for
 // `app.Start` to handle and log.
 func (app *App) start() (err error) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Kill, os.Interrupt)
+
+	configWatcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return errors.Wrap(err, "failed to create configuration file watcher")
+	}
+
+	err = configWatcher.Add("config.json")
+	if err != nil {
+		return errors.Wrap(err, "failed to add config.json to file watcher")
+	}
 
 	f := func() (errInner error) {
 		select {
@@ -31,6 +64,17 @@ func (app *App) start() (err error) {
 		case errInner = <-app.Watcher.Errors:
 			logger.Error("git watcher encountered an error",
 				zap.Error(errInner))
+
+		case errInner = <-configWatcher.Errors:
+			logger.Error("config watcher encountered an error",
+				zap.Error(errInner))
+
+		case <-configWatcher.Events:
+			errInner = app.setupGitWatcher()
+			if errInner != nil {
+				logger.Error("failed to re-create git watcher with new config",
+					zap.Error(errInner))
+			}
 
 		case event := <-app.Watcher.Events:
 			logger.Debug("event received",

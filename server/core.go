@@ -3,14 +3,13 @@ package server
 import (
 	"context"
 	"os"
-	"time"
-
-	"github.com/joho/godotenv"
 
 	"github.com/Southclaws/gitwatch"
 	"github.com/hashicorp/vault/api"
+	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport/ssh"
 )
 
@@ -20,6 +19,7 @@ type App struct {
 	GlobalEnvs map[string]string
 	Watcher    *gitwatch.Session
 	Vault      *api.Client
+	Auth       transport.AuthMethod
 
 	ctx context.Context
 	cf  context.CancelFunc
@@ -64,23 +64,14 @@ func Initialise(config Config) (app *App, err error) {
 		}
 	}
 
-	auth, err := ssh.NewSSHAgentAuth("git")
+	app.Auth, err = ssh.NewSSHAgentAuth("git")
 	if err != nil {
 		err = errors.Wrap(err, "failed to set up SSH authentication")
 		return
 	}
 
-	app.Watcher, err = gitwatch.New(
-		ctx,
-		config.Targets,
-		time.Duration(config.CheckInterval),
-		config.CacheDirectory,
-		auth,
-		true,
-	)
+	err = app.setupGitWatcher()
 	if err != nil {
-		cf()
-		err = errors.Wrap(err, "failed to construct new git watcher")
 		return
 	}
 
