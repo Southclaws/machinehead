@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"gopkg.in/src-d/go-git.v4"
 )
 
 // sets up the gitwatch daemon, called during initialisation and at runtime
@@ -37,6 +38,37 @@ func (app *App) setupGitWatcher() (err error) {
 	return
 }
 
+func (app *App) setupSelfRepoWatcher() (session *gitwatch.Session, err error) {
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	repo, err := git.PlainOpen(wd)
+	if err != nil {
+		if err == git.ErrRepositoryNotExists {
+			return nil, nil
+		}
+		return
+	}
+
+	remote, err := repo.Remote("origin")
+	if err != nil {
+		return
+	}
+
+	session, err = gitwatch.New(
+		app.ctx,
+		[]string{remote.Config().URLs[0]},
+		time.Duration(app.Config.CheckInterval),
+		app.Config.CacheDirectory,
+		app.Auth,
+		true,
+	)
+
+	return
+}
+
 // start runs the daemon and blocks until exit, it returns an error for
 // `app.Start` to handle and log.
 func (app *App) start() (err error) {
@@ -51,6 +83,11 @@ func (app *App) start() (err error) {
 	err = configWatcher.Add("machinehead.json")
 	if err != nil {
 		return errors.Wrap(err, "failed to add machinehead.json to file watcher")
+	}
+
+	app.SelfWatcher, err = app.setupSelfRepoWatcher()
+	if err != nil {
+		return errors.Wrap(err, "failed to create current directory git watcher")
 	}
 
 	f := func() (errInner error) {

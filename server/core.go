@@ -15,11 +15,12 @@ import (
 
 // App stores application state
 type App struct {
-	Config     Config
-	GlobalEnvs map[string]string
-	Watcher    *gitwatch.Session
-	Vault      *api.Client
-	Auth       transport.AuthMethod
+	Config      Config
+	GlobalEnvs  map[string]string
+	Watcher     *gitwatch.Session
+	SelfWatcher *gitwatch.Session
+	Vault       *api.Client
+	Auth        transport.AuthMethod
 
 	ctx context.Context
 	cf  context.CancelFunc
