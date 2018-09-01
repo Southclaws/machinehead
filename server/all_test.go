@@ -118,7 +118,7 @@ func setup() (close context.CancelFunc, err error) {
 			filepath.Join(repositories, "two"),
 			filepath.Join(repositories, "three"),
 		},
-		CheckInterval:  time.Second,
+		CheckInterval:  time.Second, 
 		CacheDirectory: cache,
 		VaultAddress:   "http://127.0.0.1:8200",
 		VaultToken:     "1234",

@@ -1,24 +1,20 @@
-VERSION := $(shell cat VERSION)
+VERSION := $(shell git describe --tags)
 LDFLAGS := -ldflags "-X main.version=$(VERSION)"
 VAULT_TOKEN := "fdb46bbe-fd53-7a71-b3e9-c9c0683869dc"
 -include .env
 
 fast:
-	go build
+	go build \
+		$(LDFLAGS) \
+		-o machinehead
 
 static:
 	CGO_ENABLED=0 GOOS=linux \
 	go build \
 		-a $(LDFLAGS) \
-		-o machinehead \
-		.
+		-o machinehead
 
 local: fast
-	MACHINEHEAD_TARGETS="test/repositories/a,test/repositories/b,test/repositories/c" \
-	MACHINEHEAD_CHECK_INTERVAL="1s" \
-	MACHINEHEAD_CACHE_DIRECTORY="test/cache" \
-	MACHINEHEAD_VAULT_ADDRESS="http://127.0.0.1:8200" \
-	MACHINEHEAD_VAULT_TOKEN="$(VAULT_TOKEN)" \
 	DEBUG=1 \
 	./machinehead
 

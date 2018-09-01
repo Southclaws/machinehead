@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/Southclaws/gitwatch"
+	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
@@ -87,21 +88,29 @@ func (app *App) doInitialUp() (err error) {
 
 // envForRepo gets a set of environment variables for a given repo
 func (app *App) envForRepo(path string) (result map[string]string, err error) {
-	projectName := filepath.Base(path)
-	secret, err := app.Vault.Logical().List(projectName)
-	if err != nil {
-		return
-	}
-	if secret == nil {
-		return
-	}
+	result = app.GlobalEnvs
 
-	result = make(map[string]string)
-	var ok bool
-	for k, v := range secret.Data {
-		result[k], ok = v.(string)
-		if !ok {
-			continue
+	if app.Vault != nil {
+		var (
+			projectName = filepath.Base(path)
+			secret      *api.Secret
+		)
+
+		secret, err = app.Vault.Logical().List(projectName)
+		if err != nil {
+			return
+		}
+		if secret == nil {
+			return
+		}
+
+		result = make(map[string]string)
+		var ok bool
+		for k, v := range secret.Data {
+			result[k], ok = v.(string)
+			if !ok {
+				continue
+			}
 		}
 	}
 

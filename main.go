@@ -1,25 +1,23 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
-
-	_ "github.com/joho/godotenv/autoload"
-	"github.com/kelseyhightower/envconfig"
 
 	"github.com/Southclaws/machinehead/server"
 )
 
 func main() {
-	config := server.Config{}
-	err := envconfig.Process("MACHINEHEAD", &config)
+	config, err := server.LoadConfig()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("failed to load config:", err)
+		os.Exit(1)
 	}
 
 	app, err := server.Initialise(config)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println("failed to initialise:", err)
+		os.Exit(2)
 	}
 
 	os.Exit(app.Start())

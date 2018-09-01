@@ -2,6 +2,10 @@ package server
 
 import (
 	"context"
+	"os"
+	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/Southclaws/gitwatch"
 	"github.com/hashicorp/vault/api"
@@ -12,9 +16,10 @@ import (
 
 // App stores application state
 type App struct {
-	Config  Config
-	Watcher *gitwatch.Session
-	Vault   *api.Client
+	Config     Config
+	GlobalEnvs map[string]string
+	Watcher    *gitwatch.Session
+	Vault      *api.Client
 
 	ctx context.Context
 	cf  context.CancelFunc
@@ -30,38 +35,57 @@ func Initialise(config Config) (app *App, err error) {
 		cf:     cf,
 	}
 
-	app.Vault, err = api.NewClient(&api.Config{
-		Address: config.VaultAddress,
-	})
-	if err != nil {
-		err = errors.Wrap(err, "failed to create new vault client")
-		return
-	}
-	app.Vault.SetToken(config.VaultToken)
-	if config.VaultNamespace != "" {
-		app.Vault.SetNamespace(config.VaultNamespace)
+	_, err = os.Stat(".env")
+	if err == nil {
+		app.GlobalEnvs, err = godotenv.Read(".env")
+		if err != nil {
+			err = errors.Wrap(err, "failed to read global variables from .env")
+			return
+		}
 	}
 
-	_, err = app.Vault.Help("secret")
-	if err != nil {
-		err = errors.Wrap(err, "failed to perform request to vault server")
-		return
+	if config.VaultAddress != "" {
+		app.Vault, err = api.NewClient(&api.Config{
+			Address: config.VaultAddress,
+		})
+		if err != nil {
+			err = errors.Wrap(err, "failed to create new vault client")
+			return
+		}
+		app.Vault.SetToken(config.VaultToken)
+		if config.VaultNamespace != "" {
+			app.Vault.SetNamespace(config.VaultNamespace)
+		}
+
+		_, err = app.Vault.Help("secret")
+		if err != nil {
+			err = errors.Wrap(err, "failed to perform request to vault server")
+			return
+		}
 	}
 
-	auth, err := ssh.NewSSHAgentAuth("")
+	auth, err := ssh.NewSSHAgentAuth("git")
 	if err != nil {
 		err = errors.Wrap(err, "failed to set up SSH authentication")
 		return
 	}
 
-	app.Watcher, err = gitwatch.New(ctx, config.Targets, config.CheckInterval, config.CacheDirectory, auth, true)
+	app.Watcher, err = gitwatch.New(
+		ctx,
+		config.Targets,
+		time.Duration(config.CheckInterval),
+		config.CacheDirectory,
+		auth,
+		true,
+	)
 	if err != nil {
 		cf()
 		err = errors.Wrap(err, "failed to construct new git watcher")
 		return
 	}
 
-	logger.Debug("starting machinehead with debug logging", zap.Any("config", config))
+	logger.Debug("starting machinehead with debug logging",
+		zap.Any("config", config))
 
 	return
 }
