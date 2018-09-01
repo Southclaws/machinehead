@@ -118,7 +118,7 @@ func setup() (close context.CancelFunc, err error) {
 			filepath.Join(repositories, "two"),
 			filepath.Join(repositories, "three"),
 		},
-		CheckInterval:  time.Second, 
+		CheckInterval:  Duration(time.Second), 
 		CacheDirectory: cache,
 		VaultAddress:   "http://127.0.0.1:8200",
 		VaultToken:     "1234",
@@ -127,7 +127,7 @@ func setup() (close context.CancelFunc, err error) {
 	if err != nil {
 		return
 	}
-
+ 
 	s, err := app.Vault.Logical().Write("secret/test", map[string]interface{}{"key1": "value1", "key2": "value2"})
 	if err != nil {
 		return

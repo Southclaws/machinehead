@@ -18,6 +18,10 @@ local: fast
 	DEBUG=1 \
 	./machinehead
 
+test:
+	go test -v -race \
+		./server
+
 
 # -
 # Docker
