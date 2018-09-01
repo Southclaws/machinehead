@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -167,11 +168,18 @@ func compose(path string, env map[string]string, command ...string) (err error) 
 		zap.Any("env", env),
 		zap.Strings("args", command))
 
+	outBuf := bytes.NewBuffer(nil)
+
 	cmd := exec.Command("docker-compose", command...)
 	cmd.Dir = path
+	cmd.Stdout = outBuf
+	cmd.Stderr = outBuf
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
 	}
 	err = cmd.Run()
-	return errors.Wrap(err, "failed to execute compose")
+	if err != nil {
+		err = errors.Wrap(err, outBuf.String())
+	}
+	return
 }
