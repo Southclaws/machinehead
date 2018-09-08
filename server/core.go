@@ -16,6 +16,7 @@ import (
 // App stores application state
 type App struct {
 	Config      Config
+	Targets     map[string]Target
 	GlobalEnvs  map[string]string
 	Watcher     *gitwatch.Session
 	SelfWatcher *gitwatch.Session
@@ -32,8 +33,13 @@ func Initialise(config Config) (app *App, err error) {
 
 	app = &App{
 		Config: config,
+		Targets: make(map[string]Target),
 		ctx:    ctx,
 		cf:     cf,
+	}
+
+	for _, t := range config.Targets {
+		app.Targets[t.RepoURL] = t
 	}
 
 	_, err = os.Stat(".env")
@@ -111,7 +117,9 @@ func (app *App) Run() (err error) {
 		return errors.Wrap(err, "git watcher encountered an error during initial clone")
 	}
 
-	// initial `docker-compose up` of apps
+	// TODO: no more docker-compose
+	// generic commands
+	// add `InitialRun` check
 	err = app.doInitialUp()
 	if err != nil {
 		return errors.Wrap(err, "daemon failed to initialise")
@@ -146,7 +154,7 @@ func (app *App) Stop() {
 		if err != nil {
 			continue
 		}
-		err = compose(path, map[string]string{}, "down")
+		err = target.Execute(path, map[string]string{}, true)
 		if err != nil {
 			continue
 		}

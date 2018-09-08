@@ -1,10 +1,7 @@
 package server
 
 import (
-	"bytes"
-	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"time"
@@ -143,7 +140,9 @@ func (app *App) start() (err error) {
 					zap.Error(errInner))
 			}
 
-			errInner = compose(event.Path, env, "up", "-d")
+			target := app.Targets[event.URL]
+
+			errInner = target.Execute(event.Path, env, false)
 			if errInner != nil {
 				logger.Error("failed to execute compose",
 					zap.Error(errInner))
@@ -177,7 +176,7 @@ func (app *App) doInitialUp() (err error) {
 			return errors.Wrapf(err, "failed to get secrets for %s", target.String())
 		}
 
-		err = compose(path, env, "up", "-d")
+		err = target.Execute(path, env, false)
 		if err != nil {
 			return
 		}
@@ -213,27 +212,5 @@ func (app *App) envForRepo(path string) (result map[string]string, err error) {
 		}
 	}
 
-	return
-}
-
-// compose runs a docker-compose command with the given environment variables
-func compose(path string, env map[string]string, command ...string) (err error) {
-	logger.Debug("running compose command",
-		zap.Any("env", env),
-		zap.Strings("args", command))
-
-	outBuf := bytes.NewBuffer(nil)
-
-	cmd := exec.Command("docker-compose", command...)
-	cmd.Dir = path
-	cmd.Stdout = outBuf
-	cmd.Stderr = outBuf
-	for k, v := range env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
-	}
-	err = cmd.Run()
-	if err != nil {
-		err = errors.Wrap(err, outBuf.String())
-	}
 	return
 }
