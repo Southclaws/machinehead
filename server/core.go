@@ -142,7 +142,7 @@ func (app *App) Stop() {
 	app.cf()
 
 	for _, target := range app.Config.Targets {
-		path, err := gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
+		path, err := gitwatch.GetRepoPath(app.Config.CacheDirectory, target.RepoURL)
 		if err != nil {
 			continue
 		}
@@ -152,6 +152,6 @@ func (app *App) Stop() {
 		}
 
 		logger.Info("shut down deployment",
-			zap.String("target", target))
+			zap.String("target", target.String()))
 	}
 }

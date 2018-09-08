@@ -23,9 +23,15 @@ func (app *App) setupGitWatcher() (err error) {
 	if app.Watcher != nil {
 		app.Watcher.Close()
 	}
+
+	var targets = make([]string, len(app.Config.Targets))
+	for i, t := range app.Config.Targets {
+		targets[i] = t.RepoURL
+	}
+
 	app.Watcher, err = gitwatch.New(
 		app.ctx,
-		app.Config.Targets,
+		targets,
 		time.Duration(app.Config.CheckInterval),
 		app.Config.CacheDirectory,
 		app.Auth,
@@ -132,7 +138,8 @@ func (app *App) start() (err error) {
 
 			env, errInner := app.envForRepo(event.Path)
 			if errInner != nil {
-				logger.Error("failed to get secrets for project",
+				logger.Error("failed to get secrets for target",
+					zap.String("target", event.URL),
 					zap.Error(errInner))
 			}
 
@@ -159,15 +166,15 @@ func (app *App) start() (err error) {
 func (app *App) doInitialUp() (err error) {
 	var path string
 	for _, target := range app.Config.Targets {
-		path, err = gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
+		path, err = gitwatch.GetRepoPath(app.Config.CacheDirectory, target.RepoURL)
 		if err != nil {
-			return errors.Wrap(err, "failed to get cached repository path")
+			return errors.Wrapf(err, "failed to get cached repository path for %s", target.String())
 		}
 
 		var env map[string]string
 		env, err = app.envForRepo(path)
 		if err != nil {
-			return errors.Wrap(err, "failed to get secrets for project")
+			return errors.Wrapf(err, "failed to get secrets for %s", target.String())
 		}
 
 		err = compose(path, env, "up", "-d")

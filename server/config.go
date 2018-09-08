@@ -10,7 +10,7 @@ import (
 
 // Config defines configuration fields
 type Config struct {
-	Targets        []string `required:"true"   json:"targets"`
+	Targets        []Target `required:"true"   json:"targets"`
 	CheckInterval  Duration `default:"1s"      json:"check_interval"`
 	CacheDirectory string   `default:"./cache" json:"cache_directory"`
 	VaultAddress   string   `required:"false"  json:"vault_address"`
