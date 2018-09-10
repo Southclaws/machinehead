@@ -96,46 +96,46 @@ func (app *App) start() (err error) {
 	f := func() (errInner error) {
 		select {
 		case <-app.ctx.Done():
-			logger.Debug("application internally terminated", zap.Error(app.ctx.Err()))
+			app.L.Debug("application internally terminated", zap.Error(app.ctx.Err()))
 			return app.ctx.Err()
 
 		case sig := <-c:
 			return errors.New(sig.String())
 
 		case errInner = <-app.Watcher.Errors:
-			logger.Error("git watcher encountered an error",
+			app.L.Error("git watcher encountered an error",
 				zap.Error(errInner))
 
 		case errInner = <-configWatcher.Errors:
-			logger.Error("config watcher encountered an error",
+			app.L.Error("config watcher encountered an error",
 				zap.Error(errInner))
 
 		case errInner = <-app.SelfWatcher.Errors:
-			logger.Error("self repo watcher encountered an error",
+			app.L.Error("self repo watcher encountered an error",
 				zap.Error(errInner))
 
 		case <-configWatcher.Events:
 			errInner = app.setupGitWatcher()
 			if errInner != nil {
-				logger.Error("failed to re-create git watcher with new config",
+				app.L.Error("failed to re-create git watcher with new config",
 					zap.Error(errInner))
 			}
 
 		case event := <-app.SelfWatcher.Events:
-			logger.Debug("working repository that contains config updated",
+			app.L.Debug("working repository that contains config updated",
 				zap.String("url", event.URL),
 				zap.String("path", event.Path),
 				zap.Time("timestamp", event.Timestamp))
 
 		case event := <-app.Watcher.Events:
-			logger.Debug("event received",
+			app.L.Debug("event received",
 				zap.String("path", event.Path),
 				zap.String("repo", event.URL),
 				zap.Time("timestamp", event.Timestamp))
 
 			env, errInner := app.envForRepo(event.Path)
 			if errInner != nil {
-				logger.Error("failed to get secrets for target",
+				app.L.Error("failed to get secrets for project",
 					zap.String("target", event.URL),
 					zap.Error(errInner))
 			}
@@ -144,14 +144,14 @@ func (app *App) start() (err error) {
 
 			errInner = target.Execute(event.Path, env, false)
 			if errInner != nil {
-				logger.Error("failed to execute compose",
+				app.L.Error("failed to execute compose",
 					zap.Error(errInner))
 			}
 		}
 		return nil
 	}
 
-	logger.Debug("starting background daemon")
+	app.L.Debug("starting background daemon")
 
 	for {
 		err = f()

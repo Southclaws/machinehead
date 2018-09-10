@@ -1,24 +1,70 @@
 package main
 
 import (
-	"fmt"
 	"os"
+
+	"github.com/pkg/errors"
+	"github.com/urfave/cli"
+	"go.uber.org/zap"
 
 	"github.com/Southclaws/machinehead/server"
 )
 
 func main() {
-	config, err := server.LoadConfig()
-	if err != nil {
-		fmt.Println("failed to load config:", err)
-		os.Exit(1)
+	var logger *zap.Logger
+
+	app := cli.NewApp()
+	app.Commands = []cli.Command{
+		{
+			Name:        "run",
+			Aliases:     []string{"r"},
+			Description: "Begin watching targets for changes, it is recommended that this process is daemonised.",
+			Action: func(c *cli.Context) (err error) {
+				logger = setupLogger(c.GlobalBool("verbose"))
+
+				config, err := server.LoadConfig()
+				if err != nil {
+					return errors.Wrap(err, "failed to load config")
+				}
+
+				s, err := server.Initialise(config, logger)
+				if err != nil {
+					if err == server.ErrExistingDaemon {
+						logger.Info("Did you mean to use `run` or one of the daemon control commands?")
+					}
+					return errors.Wrap(err, "failed to initialise")
+				}
+
+				return s.Run()
+			},
+		},
+	}
+	app.Flags = []cli.Flag{
+		cli.BoolFlag{
+			Name:   "verbose",
+			Usage:  "Enable more verbose messages",
+			EnvVar: "VERBOSE",
+		},
 	}
 
-	app, err := server.Initialise(config)
-	if err != nil {
-		fmt.Println("failed to initialise:", err)
-		os.Exit(2)
+	app.Before = func(c *cli.Context) (err error) {
+		return
 	}
 
-	os.Exit(app.Start())
+	err := app.Run(os.Args)
+	if err != nil {
+		logger.Fatal("Exited with error", zap.Error(err))
+	}
+}
+
+func setupLogger(verbose bool) (logger *zap.Logger) {
+	config := zap.NewDevelopmentConfig()
+	if verbose {
+		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	}
+	logger, err := config.Build()
+	if err != nil {
+		panic(err)
+	}
+	return
 }

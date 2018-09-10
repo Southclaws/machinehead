@@ -6,7 +6,6 @@ import (
 	"os/exec"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 // Target represents a git repository with a set of tasks to perform each time
@@ -45,10 +44,6 @@ func (t Target) String() string {
 // Execute runs the target's command in the specified directory with the
 // specified environment variables
 func (t *Target) Execute(dir string, env map[string]string, shutdown bool) (err error) {
-	logger.Debug("executing target command",
-		zap.String("target", t.String()),
-		zap.Strings("args", t.Command))
-
 	for k, v := range t.Env {
 		env[k] = v
 	}
@@ -60,9 +55,7 @@ func (t *Target) Execute(dir string, env map[string]string, shutdown bool) (err 
 		command = t.Command
 	}
 
-	execute(dir, env, command)
-
-	return
+	return execute(dir, env, command)
 }
 
 func execute(dir string, env map[string]string, command []string) (err error) {

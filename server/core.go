@@ -23,19 +23,31 @@ type App struct {
 	Vault       *api.Client
 	Auth        transport.AuthMethod
 
+	L *zap.Logger
+
 	ctx context.Context
 	cf  context.CancelFunc
 }
 
+var (
+	ErrExistingDaemon = errors.New("an existing instance of machinehead is already running here")
+)
+
 // Initialise creates a new instance and prepares it for starting
-func Initialise(config Config) (app *App, err error) {
+func Initialise(config Config, logger *zap.Logger) (app *App, err error) {
+	exists := SocketExists()
+	if exists {
+		return nil, ErrExistingDaemon
+	}
+
 	ctx, cf := context.WithCancel(context.Background())
 
 	app = &App{
-		Config: config,
+		Config:  config,
 		Targets: make(map[string]Target),
-		ctx:    ctx,
-		cf:     cf,
+		L:       logger,
+		ctx:     ctx,
+		cf:      cf,
 	}
 
 	for _, t := range config.Targets {
@@ -82,28 +94,16 @@ func Initialise(config Config) (app *App, err error) {
 		return
 	}
 
-	logger.Debug("starting machinehead with debug logging",
-		zap.Any("config", config))
-
 	return
-}
-
-// Start will start the application and block until graceful exit or fatal error
-// returns an exit code to be passed back to the `main` caller for `os.Exit`.
-func (app *App) Start() int {
-	err := app.Run()
-	if err != nil {
-		logger.Error("application daemon encountered an error",
-			zap.Error(err))
-		return 1
-	}
-	return 0
 }
 
 // Run will run the application and block until graceful exit like `app.Start`
 // but this function returns an explicit error. This is for use when Machinehead
 // is being used as a library instead of a command line application.
 func (app *App) Run() (err error) {
+	app.L.Debug("starting machinehead with debug logging",
+		zap.Any("config", app.Config))
+
 	// first, bootstrap the repositories
 	// pass errors to a channel
 	errChan := make(chan error)
@@ -125,7 +125,7 @@ func (app *App) Run() (err error) {
 		return errors.Wrap(err, "daemon failed to initialise")
 	}
 
-	logger.Debug("done initial docker-compose up of targets")
+	app.L.Debug("done initial docker-compose up of targets")
 
 	// start and block until error or graceful exit
 	// always stop after, regardless of exit state
@@ -145,7 +145,7 @@ func (app *App) Stop() {
 		return
 	}
 
-	logger.Debug("graceful shutdown initiated")
+	app.L.Debug("graceful shutdown initiated")
 
 	app.cf()
 
@@ -159,7 +159,7 @@ func (app *App) Stop() {
 			continue
 		}
 
-		logger.Info("shut down deployment",
+		app.L.Info("shut down deployment",
 			zap.String("target", target.String()))
 	}
 }
