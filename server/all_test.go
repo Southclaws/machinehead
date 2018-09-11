@@ -16,9 +16,12 @@ import (
 	"github.com/docker/libcompose/config"
 	"github.com/docker/libcompose/project"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"gopkg.in/yaml.v2"
+
+	"github.com/Southclaws/machinehead/types"
 )
 
 const repositories = "./test/repositories"
@@ -101,6 +104,10 @@ func setup() (close context.CancelFunc, err error) {
 		return
 	}
 
+	config := zap.NewDevelopmentConfig()
+	config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	logger, _ := config.Build()
+
 	vaultCtx, vaultClose := context.WithCancel(context.Background())
 	close = func() {
 		fmt.Println("closing vault instance")
@@ -113,23 +120,28 @@ func setup() (close context.CancelFunc, err error) {
 	time.Sleep(time.Second)
 
 	app, err = Initialise(Config{
-		Targets: []string{
-			filepath.Join(repositories, "one"),
-			filepath.Join(repositories, "two"),
-			filepath.Join(repositories, "three"),
+		Targets: []types.Target{
+			{RepoURL: filepath.Join(repositories, "one")},
+			{RepoURL: filepath.Join(repositories, "two")},
+			{RepoURL: filepath.Join(repositories, "three")},
 		},
-		CheckInterval:  Duration(time.Second), 
+		CheckInterval:  Duration(time.Second),
 		CacheDirectory: cache,
 		VaultAddress:   "http://127.0.0.1:8200",
 		VaultToken:     "1234",
 		// VaultNamespace: "",
-	})
+	}, logger)
 	if err != nil {
 		return
 	}
- 
+
+	l, err := app.Vault.Logical().List("/")
+	fmt.Println("performing test request against vault", err, l)
 	s, err := app.Vault.Logical().Write("secret/test", map[string]interface{}{"key1": "value1", "key2": "value2"})
 	if err != nil {
+		fmt.Println(err)
+		c := make(chan bool)
+		<-c
 		return
 	}
 	fmt.Println(s)
@@ -219,7 +231,14 @@ func writeDC(path string, command []string) (err error) {
 func startVault(ctx context.Context) (err error) {
 	ch := make(chan error, 1)
 	go func(c chan error) {
-		cmd := exec.CommandContext(ctx, "vault", "server", "-dev", "-dev-root-token-id=1234")
+		cmd := exec.CommandContext(
+			ctx, 
+			"vault", 
+			"server", 
+			"-dev", 
+			"-dev-root-token-id=1234",
+			"-log-level=trace",
+		)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		e := cmd.Run()

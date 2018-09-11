@@ -38,6 +38,15 @@ func main() {
 				return s.Run()
 			},
 		},
+		{
+			Name:        "trigger",
+			Aliases:     []string{"t"},
+			Description: "Trigger all or some targets to run their commands.",
+			Action: func(c *cli.Context) (err error) {
+				// client.Dispatch()
+				return
+			},
+		},
 	}
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -53,7 +62,7 @@ func main() {
 
 	err := app.Run(os.Args)
 	if err != nil {
-		logger.Fatal("Exited with error", zap.Error(err))
+		logger.Fatal("Exited with error", zap.String("error", err.Error()))
 	}
 }
 
@@ -62,6 +71,8 @@ func setupLogger(verbose bool) (logger *zap.Logger) {
 	if verbose {
 		config.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
 	}
+	config.DisableStacktrace = true
+	config.DisableCaller = true
 	logger, err := config.Build()
 	if err != nil {
 		panic(err)

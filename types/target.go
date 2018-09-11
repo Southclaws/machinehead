@@ -1,4 +1,4 @@
-package server
+package types
 
 import (
 	"bytes"
@@ -12,25 +12,25 @@ import (
 // that repository receives a new commit.
 type Target struct {
 	// An optional label for the target
-	Name string `required:"false" json:"name"`
+	Name string `json:"name"`
 
 	// The repository URL to watch for changes, either http or ssh.
-	RepoURL string `required:"true" json:"repo_url"`
+	RepoURL string `required:"true" json:"url"`
 
 	// The command to run on each new Git commit
 	Command []string `required:"true" json:"command"`
 
 	// Environment variables associated with the target - do not store credentials here!
-	Env map[string]string `required:"false" json:"env"`
+	Env map[string]string `json:"env"`
 
 	// Write an .env file to the repo directory for testing and debug purposes
-	WriteEnv bool `required:"false" json:"write_env"`
+	WriteEnv bool `json:"write_env"`
 
 	// Whether or not to run `Command` on first run, useful if the command is `docker-compose up`
-	InitialRun bool `required:"true" json:"initial_run"`
+	InitialRun bool `json:"initial_run"`
 
 	// ShutdownCommand specifies the command to run during a graceful shutdown of Machinehead
-	ShutdownCommand []string `required:"false" json:"shutdown_command"`
+	ShutdownCommand []string `json:"shutdown_command"`
 }
 
 // String returns the name of the target if present, otherwise the target URL
@@ -59,9 +59,16 @@ func (t *Target) Execute(dir string, env map[string]string, shutdown bool) (err 
 }
 
 func execute(dir string, env map[string]string, command []string) (err error) {
+	if len(command) == 0 {
+		return
+	}
+
 	outBuf := bytes.NewBuffer(nil)
 
-	cmd := exec.Command(command[0], command[1:]...)
+	cmd := exec.Command(command[0])
+	if len(command) > 1 {
+		cmd.Args = append(cmd.Args, command[1:]...)
+	}
 	cmd.Dir = dir
 	cmd.Stdout = outBuf
 	cmd.Stderr = outBuf

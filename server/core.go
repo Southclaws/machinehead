@@ -11,12 +11,14 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport/ssh"
+
+	"github.com/Southclaws/machinehead/types"
 )
 
 // App stores application state
 type App struct {
 	Config      Config
-	Targets     map[string]Target
+	Targets     map[string]types.Target
 	GlobalEnvs  map[string]string
 	Watcher     *gitwatch.Session
 	SelfWatcher *gitwatch.Session
@@ -35,7 +37,7 @@ var (
 
 // Initialise creates a new instance and prepares it for starting
 func Initialise(config Config, logger *zap.Logger) (app *App, err error) {
-	exists := SocketExists()
+	exists := types.SocketExists()
 	if exists {
 		return nil, ErrExistingDaemon
 	}
@@ -44,7 +46,7 @@ func Initialise(config Config, logger *zap.Logger) (app *App, err error) {
 
 	app = &App{
 		Config:  config,
-		Targets: make(map[string]Target),
+		Targets: make(map[string]types.Target),
 		L:       logger,
 		ctx:     ctx,
 		cf:      cf,
@@ -64,9 +66,9 @@ func Initialise(config Config, logger *zap.Logger) (app *App, err error) {
 	}
 
 	if config.VaultAddress != "" {
-		app.Vault, err = api.NewClient(&api.Config{
-			Address: config.VaultAddress,
-		})
+		vaultConfig := api.DefaultConfig()
+		vaultConfig.Address = config.VaultAddress
+		app.Vault, err = api.NewClient(vaultConfig)
 		if err != nil {
 			err = errors.Wrap(err, "failed to create new vault client")
 			return

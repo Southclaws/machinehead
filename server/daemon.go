@@ -95,6 +95,9 @@ func (app *App) start() (err error) {
 
 	f := func() (errInner error) {
 		select {
+
+		// Halt and error signals
+
 		case <-app.ctx.Done():
 			app.L.Debug("application internally terminated", zap.Error(app.ctx.Err()))
 			return app.ctx.Err()
@@ -110,9 +113,12 @@ func (app *App) start() (err error) {
 			app.L.Error("config watcher encountered an error",
 				zap.Error(errInner))
 
-		case errInner = <-app.SelfWatcher.Errors:
-			app.L.Error("self repo watcher encountered an error",
-				zap.Error(errInner))
+		// TODO: fix with channel joiner
+		// case errInner = <-app.SelfWatcher.Errors:
+		// 	app.L.Error("self repo watcher encountered an error",
+		// 		zap.Error(errInner))
+
+		// Operational events
 
 		case <-configWatcher.Events:
 			errInner = app.setupGitWatcher()
@@ -121,11 +127,11 @@ func (app *App) start() (err error) {
 					zap.Error(errInner))
 			}
 
-		case event := <-app.SelfWatcher.Events:
-			app.L.Debug("working repository that contains config updated",
-				zap.String("url", event.URL),
-				zap.String("path", event.Path),
-				zap.Time("timestamp", event.Timestamp))
+		// case event := <-app.SelfWatcher.Events:
+		// 	app.L.Debug("working repository that contains config updated",
+		// 		zap.String("url", event.URL),
+		// 		zap.String("path", event.Path),
+		// 		zap.Time("timestamp", event.Timestamp))
 
 		case event := <-app.Watcher.Events:
 			app.L.Debug("event received",

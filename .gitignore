@@ -1,3 +1,5 @@
 machinehead
 dist/
 machinehead.json
+vendor/
+tmp/

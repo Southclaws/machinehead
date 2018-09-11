@@ -6,16 +6,18 @@ import (
 
 	"github.com/Southclaws/configor"
 	"github.com/pkg/errors"
+
+	"github.com/Southclaws/machinehead/types"
 )
 
 // Config defines configuration fields
 type Config struct {
-	Targets        []Target `required:"true"   json:"targets"`
-	CheckInterval  Duration `default:"1s"      json:"check_interval"`
-	CacheDirectory string   `default:"./cache" json:"cache_directory"`
-	VaultAddress   string   `required:"false"  json:"vault_address"`
-	VaultToken     string   `required:"false"  json:"vault_token"`
-	VaultNamespace string   `required:"false"  json:"vault_namespace"`
+	Targets        []types.Target `required:"true"   json:"targets"`
+	CheckInterval  Duration       `required:"true"   json:"check_interval"`
+	CacheDirectory string         `default:"./cache" json:"cache_directory"`
+	VaultAddress   string         `required:"false"  json:"vault_address"`
+	VaultToken     string         `required:"false"  json:"vault_token"`
+	VaultNamespace string         `required:"false"  json:"vault_namespace"`
 }
 
 // LoadConfig reads configuration from the current working directory
