@@ -38,6 +38,12 @@ func (app *App) setupGitWatcher() (err error) {
 		err = errors.Wrap(err, "failed to construct new git watcher")
 		return
 	}
+	// TODO: Break this to prevent goroutine leak
+	go func() {
+		for {
+			app.Errors <- <-app.Watcher.Errors
+		}
+	}()
 	return
 }
 
@@ -119,6 +125,10 @@ func (app *App) start() (err error) {
 		// 		zap.Error(errInner))
 
 		// Operational events
+
+		// events:
+		// errors
+		// triggers
 
 		case <-configWatcher.Events:
 			errInner = app.setupGitWatcher()

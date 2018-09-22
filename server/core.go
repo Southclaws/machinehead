@@ -25,6 +25,10 @@ type App struct {
 	Vault       *api.Client
 	Auth        transport.AuthMethod
 
+	Errors   chan error
+	Triggers chan []types.Target
+
+
 	L *zap.Logger
 
 	ctx context.Context
