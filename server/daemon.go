@@ -13,8 +13,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
+	git "github.com/src-d/go-git"
 	"go.uber.org/zap"
-	"gopkg.in/src-d/go-git.v4"
 )
 
 // sets up the gitwatch daemon, called during initialisation and at runtime
@@ -46,9 +46,6 @@ func (app *App) setupSelfRepoWatcher() (session *gitwatch.Session, err error) {
 
 	repo, err := git.PlainOpen(wd)
 	if err != nil {
-		if err == git.ErrRepositoryNotExists {
-			return nil, nil
-		}
 		return
 	}
 
