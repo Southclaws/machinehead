@@ -86,7 +86,6 @@ require (
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
 	github.com/sirupsen/logrus v1.0.6 // indirect
 	github.com/spf13/pflag v1.0.2 // indirect
-	github.com/src-d/go-git v4.7.0+incompatible
 	github.com/stretchr/testify v1.2.2
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect

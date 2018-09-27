@@ -13,7 +13,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
-	git "github.com/src-d/go-git"
+	"gopkg.in/src-d/go-git.v4"
 	"go.uber.org/zap"
 )
 
