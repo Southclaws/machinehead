@@ -13,8 +13,8 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
-	"gopkg.in/src-d/go-git.v4"
 	"go.uber.org/zap"
+	"gopkg.in/src-d/go-git.v4"
 )
 
 // sets up the gitwatch daemon, called during initialisation and at runtime

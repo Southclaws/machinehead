@@ -141,17 +141,17 @@ func (app *App) Stop() {
 
 	app.cf()
 
-	for _, target := range app.Config.Targets {
-		path, err := gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
-		if err != nil {
-			continue
-		}
-		err = compose(path, map[string]string{}, "down")
-		if err != nil {
-			continue
-		}
+	// for _, target := range app.Config.Targets {
+	// 	path, err := gitwatch.GetRepoPath(app.Config.CacheDirectory, target)
+	// 	if err != nil {
+	// 		continue
+	// 	}
+	// 	err = compose(path, map[string]string{}, "down")
+	// 	if err != nil {
+	// 		continue
+	// 	}
 
-		logger.Info("shut down deployment",
-			zap.String("target", target))
-	}
+	// 	logger.Info("shut down deployment",
+	// 		zap.String("target", target))
+	// }
 }
