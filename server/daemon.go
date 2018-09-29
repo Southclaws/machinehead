@@ -41,16 +41,19 @@ func (app *App) setupGitWatcher() (err error) {
 func (app *App) setupSelfRepoWatcher() (session *gitwatch.Session, err error) {
 	wd, err := os.Getwd()
 	if err != nil {
+		err = errors.Wrap(err, "failed to get working directory")
 		return
 	}
 
 	repo, err := git.PlainOpen(wd)
 	if err != nil {
+		err = errors.Wrap(err, "failed to open working directory as repository")
 		return
 	}
 
 	remote, err := repo.Remote("origin")
 	if err != nil {
+		err = errors.Wrap(err, "failed to get remote 'origin'")
 		return
 	}
 
@@ -62,6 +65,10 @@ func (app *App) setupSelfRepoWatcher() (session *gitwatch.Session, err error) {
 		app.Auth,
 		true,
 	)
+	if err != nil {
+		err = errors.Wrap(err, "failed to create git watcher")
+		return
+	}
 
 	return
 }

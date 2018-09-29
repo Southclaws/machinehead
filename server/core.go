@@ -137,7 +137,7 @@ func (app *App) Stop() {
 		return
 	}
 
-	logger.Debug("graceful shutdown initiated", zap.Stack("from"))
+	logger.Debug("graceful shutdown initiated")
 
 	app.cf()
 
