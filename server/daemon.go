@@ -47,7 +47,7 @@ func (app *App) setupSelfRepoWatcher() (session *gitwatch.Session, err error) {
 
 	repo, err := git.PlainOpen(wd)
 	if err != nil {
-		err = errors.Wrap(err, "failed to open working directory as repository")
+		err = errors.Wrapf(err, "failed to open %s as repository", wd)
 		return
 	}
 
