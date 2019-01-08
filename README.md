@@ -2,6 +2,8 @@
 
 _[GitOps][gitops] for single-server deployments!_
 
+## Deprecated! Replaced with [Wadsworth](https://github.com/Southclaws/wadsworth)
+
 A docker-compose application manager that deploys and maintains a set of compose
 projects and provides secret management for them via
 [Vault](https://www.vaultproject.io/).
